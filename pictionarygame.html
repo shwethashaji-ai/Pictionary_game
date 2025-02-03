@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multiplayer Pictionary</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #ff9a9e, #fad0c4);
+            color: #333;
+        }
+
+        #game-container {
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        canvas {
+            border: 3px solid #333;
+            cursor: crosshair;
+            background: white;
+            margin-top: 10px;
+            border-radius: 5px;
+        }
+
+        #word-display {
+            font-size: 1.5rem;
+            margin: 20px 0;
+            font-weight: bold;
+            color: #e44d26;
+        }
+
+        #timer {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #ff5722;
+        }
+
+        #controls {
+            margin: 20px 0;
+        }
+
+        #guess-section {
+            margin: 20px 0;
+        }
+
+        #scores {
+            margin: 20px 0;
+            font-weight: bold;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        button {
+            background: #ff5722;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            font-size: 1rem;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+            transition: 0.3s;
+        }
+
+        button:hover {
+            background: #e44d26;
+        }
+
+        input {
+            padding: 10px;
+            font-size: 1rem;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            width: 200px;
+        }
+
+        #color-picker {
+            margin: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <h1>🎨 Multiplayer Pictionary</h1>
+        <div id="word-display" class="hidden">Your word: <span id="word">______</span></div>
+        <div id="timer">Time left: <span id="time">60</span> seconds</div>
+        <canvas id="drawing-board" width="600" height="400"></canvas>
+
+        <div id="controls">
+            <label for="color-picker">🎨 Choose Color:</label>
+            <input type="color" id="color-picker" value="#000000">
+            <button id="clear-button">Clear Drawing</button>
+        </div>
+
+        <div id="guess-section">
+            <input type="text" id="guess-input" placeholder="Enter your guess here">
+            <button id="submit-guess">Submit Guess</button>
+            <p id="guess-feedback"></p>
+        </div>
+
+        <div id="scores">
+            <h3>🏆 Scores</h3>
+            <ul id="score-list"></ul>
+        </div>
+
+        <button id="start-button">Start New Game</button>
+    </div>
+
+    <script>
+        const words = ["apple", "dog", "car", "house", "tree", "book", "computer", "flower", "cat", "sun"];
+        const wordDisplay = document.getElementById("word");
+        const timerDisplay = document.getElementById("time");
+        const canvas = document.getElementById("drawing-board");
+        const ctx = canvas.getContext("2d");
+        const startButton = document.getElementById("start-button");
+        const clearButton = document.getElementById("clear-button");
+        const colorPicker = document.getElementById("color-picker");
+        const guessInput = document.getElementById("guess-input");
+        const submitGuessButton = document.getElementById("submit-guess");
+        const guessFeedback = document.getElementById("guess-feedback");
+        const scoreList = document.getElementById("score-list");
+        const wordDisplayContainer = document.getElementById("word-display");
+
+        let isDrawing = false;
+        let timer;
+        let timeLeft = 60;
+        let currentWord = "";
+        let players = ["Player 1", "Player 2", "Player 3"];
+        let scores = {};
+        let currentPlayerIndex = 0;
+        let brushColor = "#000000";
+
+        // Initialize scores
+        players.forEach(player => scores[player] = 0);
+
+        function updateScores() {
+            scoreList.innerHTML = "";
+            for (const player in scores) {
+                const li = document.createElement("li");
+                li.textContent = `${player}: ${scores[player]} points`;
+                scoreList.appendChild(li);
+            }
+        }
+
+        // Generate a random word
+        function getRandomWord() {
+            return words[Math.floor(Math.random() * words.length)];
+        }
+
+        // Start a new game
+        function startGame() {
+            currentWord = getRandomWord();
+            wordDisplay.textContent = currentWord;
+            alert(`${players[currentPlayerIndex]}, your word is: ${currentWord}`);
+            wordDisplay.textContent = "______"; // Hide the word after displaying it
+            resetTimer();
+            startTimer();
+            clearCanvas();
+            wordDisplayContainer.classList.remove("hidden");
+            guessFeedback.textContent = "";
+            guessInput.value = "";
+        }
+
+        // Timer functions
+        function startTimer() {
+            timer = setInterval(() => {
+                if (timeLeft > 0) {
+                    timeLeft--;
+                    timerDisplay.textContent = timeLeft;
+                } else {
+                    clearInterval(timer);
+                    alert("Time's up! The word was: " + currentWord);
+                    switchPlayer();
+                }
+            }, 1000);
+        }
+
+        function resetTimer() {
+            clearInterval(timer);
+            timeLeft = 60;
+            timerDisplay.textContent = timeLeft;
+        }
+
+        // Switch to the next player
+        function switchPlayer() {
+            currentPlayerIndex = (currentPlayerIndex + 1) % players.length;
+            alert(`${players[currentPlayerIndex]}'s turn to draw!`);
+            startGame();
+        }
+
+        // Clear canvas
+        function clearCanvas() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+
+        // Drawing on canvas
+        canvas.addEventListener("mousedown", () => {
+            isDrawing = true;
+            ctx.beginPath();
+        });
+
+        canvas.addEventListener("mouseup", () => {
+            isDrawing = false;
+        });
+
+        canvas.addEventListener("mousemove", (e) => {
+            if (!isDrawing) return;
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            ctx.lineWidth = 5;
+            ctx.lineCap = "round";
+            ctx.strokeStyle = brushColor;
+            ctx.lineTo(x, y);
+            ctx.stroke();
+        });
+
+        // Change brush color
+        colorPicker.addEventListener("input", (e) => {
+            brushColor = e.target.value;
+        });
+
+        // Handle guess submission
+        submitGuessButton.addEventListener("click", () => {
+            const guess = guessInput.value.trim().toLowerCase();
+            if (guess === currentWord.toLowerCase()) {
+                guessFeedback.textContent = "✅ Correct!";
+                scores[players[currentPlayerIndex]] += 10;
+                updateScores();
+                clearInterval(timer);
+                switchPlayer();
+            } else {
+                guessFeedback.textContent = "❌ Try again!";
+            }
+        });
+
+        // Event listeners
+        startButton.addEventListener("click", startGame);
+        clearButton.addEventListener("click", clearCanvas);
+
+        // Initialize the game
+        updateScores();
+        startGame();
+    </script>
+</body>
+</html>
